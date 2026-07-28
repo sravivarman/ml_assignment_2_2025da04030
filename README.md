@@ -3,6 +3,7 @@
 Machine Learning Classification Models
 
 Author: RAVIVARMAN S
+
 BITS ID: 2025DA04030
 
 ## a. Problem Statement
@@ -30,9 +31,7 @@ The objective of this project is to develop and compare multiple machine learnin
 - **Missing Values:** None
 - **Data Type:** Mixed (Numerical and Encoded Categorical Features)
 
----
-
-## EDA Summary
+### EDA Summary
 
 - The dataset contains **4,424 records**, **36 input features**, and **one target variable (`Target`)**.
 - The dataset contains **no missing values** and **no duplicate records**, indicating that the data is clean and suitable for machine learning analysis.
