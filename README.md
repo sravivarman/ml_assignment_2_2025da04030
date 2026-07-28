@@ -33,4 +33,4 @@ The rapid growth of Internet of Things (IoT) devices has increased the risk of c
 'https://github.com/sravivarman/ml_assignment_2_2025da04030'
 
 ## d. Models used
-Make a Comparison Table with the evaluation metrics calculated for all the 6 models as below:
+Comparison Table with the evaluation metrics calculated for all the 6 models as below:
