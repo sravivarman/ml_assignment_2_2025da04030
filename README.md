@@ -6,28 +6,45 @@ Author: RAVIVARMAN S
 BITS ID: 2025DA04030
 
 ## a. Problem Statement
-The rapid growth of Internet of Things (IoT) devices has increased the risk of cyberattacks targeting interconnected systems and smart environments. Early and accurate detection of malicious network traffic is essential to ensure the security and reliability of IoT networks. The goal of this project is to develop and compare multiple machine learning classification models capable of identifying different types of network attacks from normal IoT traffic using the RT-IoT2022 dataset. The trained models will be deployed through an interactive Streamlit web application, allowing users to classify network traffic based on input features and evaluate the performance of different machine learning algorithms.
+
+The ability to predict students' academic outcomes is essential for educational institutions to improve student retention, enhance academic performance, and provide timely support to students who are at risk of dropping out. Early prediction enables institutions to implement appropriate intervention strategies, thereby improving graduation rates and reducing student attrition.
+
+The objective of this project is to develop and compare multiple machine learning classification models capable of predicting whether a student will **Dropout**, remain **Enrolled**, or **Graduate** based on demographic, socioeconomic, academic, and institutional factors. The trained models will be deployed through an interactive **Streamlit** web application, allowing users to predict student academic outcomes and compare the performance of different machine learning algorithms.
+
+---
 
 ## b. Dataset Description
-- Dataset Name: RT-IoT2022 Dataset
-- Sourse: UCI Machine Learning Repository https://archive.ics.uci.edu/dataset/942/rt-iot2022
-- No. of Instances: 123,117
-- No. of Features:
-    83 input features (network traffic and flow characteristics)
-    1 target variable (Attack_type) containing different IoT traffic and attack categories
-- Classification Type: Multiclass Classification
-- Number of Target Classes: 12 (in the downloaded dataset version)
-- Missing Values: None
-- Data Type: Mixed (Numerical and Categorical)
 
-### EDA Summary
-- The RT-IoT2022 dataset contains 123,117 records with 83 input features and one target variable (Attack_type).
-- The dataset contains no missing values and no duplicate records (assuming your checks confirmed this).
-- There are 12 target classes in the current dataset version.
-- The target variable is highly imbalanced, with DOS_SYN_Hping accounting for 76.89% of all records, while NMAP_FIN_SCAN is the least represented class (0.02%).
-- Numerical features exhibit varying distributions, with several showing skewness and outliers.
-- Correlation analysis identified relationships among some numerical features, but no severe multicollinearity affecting the entire dataset.
-- Based on the EDA, the dataset is clean and suitable for multiclass classification after appropriate preprocessing, including encoding categorical variables and using a stratified train-test split to preserve class proportions.
+- **Dataset Name:** Predict Students' Dropout and Academic Success
+- **Source:** UCI Machine Learning Repository  
+  https://archive.ics.uci.edu/dataset/697/predict+students+dropout+and+academic+success
+- **Number of Instances:** 4,424
+- **Number of Features:**
+  - **36 input features** consisting of demographic, academic, socioeconomic, and macroeconomic attributes.
+  - **1 target variable** (`Target`) representing the student's academic outcome.
+- **Classification Type:** Multiclass Classification
+- **Target Classes:**
+  - Dropout
+  - Enrolled
+  - Graduate
+- **Missing Values:** None
+- **Data Type:** Mixed (Numerical and Encoded Categorical Features)
+
+---
+
+## EDA Summary
+
+- The dataset contains **4,424 records**, **36 input features**, and **one target variable (`Target`)**.
+- The dataset contains **no missing values** and **no duplicate records**, indicating that the data is clean and suitable for machine learning analysis.
+- The target variable consists of **three classes**: **Graduate**, **Dropout**, and **Enrolled**.
+- The class distribution is reasonably balanced:
+  - **Graduate:** 2,209 records (49.93%)
+  - **Dropout:** 1,421 records (32.12%)
+  - **Enrolled:** 794 records (17.95%)
+- The dataset contains a combination of continuous numerical variables (such as grades, age, GDP, unemployment rate, and inflation rate) and categorical variables encoded as integers (such as gender, marital status, course, scholarship holder, and debtor status).
+- Numerical features exhibit varying distributions, with several variables showing skewness and the presence of outliers.
+- Correlation analysis indicates relationships among academic performance variables, while no severe multicollinearity is observed across the numerical features.
+- Based on the exploratory data analysis, the dataset is clean, well-structured, and suitable for multiclass classification. Appropriate preprocessing, including handling encoded categorical variables, feature scaling for distance-based algorithms, and a stratified train-test split, will be performed before model development.
 
 ## c. Github Repository Link
 'https://github.com/sravivarman/ml_assignment_2_2025da04030'
