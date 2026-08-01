@@ -46,19 +46,20 @@ from sklearn.metrics import (
     recall_score, f1_score, matthews_corrcoef,
     classification_report, confusion_matrix
 )
- 
-# ---- Path constants -------
+
+# ---- Path constants  -------
 SCRIPT_DIR = Path(__file__).resolve().parent           # .../project/model
 PROJECT_ROOT = SCRIPT_DIR.parent                        # .../project
 MODEL_DIR = SCRIPT_DIR
 DATA_DIR = PROJECT_ROOT / "data"
 TRAIN_ONLY_PATH = DATA_DIR / "train_only.csv"
- 
+
 RANDOM_STATE = 42
- 
- 
+
+
 def safe_filename(name: str) -> str:
-    """Convert a model display name into a filesystem-safe stem"""
+    """Convert a model display name into a filesystem-safe stem, e.g.
+    'Random Forest' -> 'random_forest', 'k-NN (v2)' -> 'k_nn_v2'."""
     return (
         name.lower()
         .replace(" ", "_")
@@ -66,17 +67,17 @@ def safe_filename(name: str) -> str:
         .replace(")", "")
         .replace("-", "_")
     )
-  
+
+
 def main() -> None:
     # ---- Load training data (excludes the held-out test_data.csv used by the app) ----
     df = pd.read_csv(TRAIN_ONLY_PATH)
     X = df.drop("Target", axis=1)
     y_raw = df["Target"]
- 
+
     categorical_columns = [
         "Marital status",
         "Application mode",
-        "Application order",
         "Course",
         "Daytime/evening attendance",
         "Previous qualification",
@@ -93,16 +94,16 @@ def main() -> None:
         "Scholarship holder",
         "International",
     ]
- 
+
     missing = set(categorical_columns) - set(X.columns)
     if missing:
         raise ValueError(f"Missing expected categorical columns: {missing}")
- 
+
     numerical_columns = [col for col in X.columns if col not in categorical_columns]
- 
+
     print("Categorical Features :", len(categorical_columns))
     print("Numerical Features :", len(numerical_columns))
- 
+
     # ---- Encode target ----
     label_encoder = LabelEncoder()
     y = label_encoder.fit_transform(y_raw)
@@ -110,14 +111,14 @@ def main() -> None:
     print("\nTarget Classes")
     for i, label in enumerate(label_encoder.classes_):
         print(i, ":", label)
- 
+
     # ---- Train/validation split (within the 80% training portion) ----
     X_train, X_val, y_train, y_val = train_test_split(
         X, y, test_size=0.20, random_state=RANDOM_STATE, stratify=y
     )
     print("\nTraining Set :", X_train.shape)
     print("Validation Set :", X_val.shape)
- 
+
     # ---- Shared preprocessing: OneHotEncode categoricals, StandardScale numerics ----
     preprocessor = ColumnTransformer(
         transformers=[
@@ -126,7 +127,8 @@ def main() -> None:
         ],
         remainder="drop",
     )
- 
+
+    # --- Define the 5 models to train ---- 
     model_definitions = {
         "Logistic Regression": LogisticRegression(
             max_iter=5000,
@@ -142,20 +144,20 @@ def main() -> None:
             n_jobs=-1,
         ),
     }
- 
+
     results = []
     fitted_pipelines = {}
- 
+
     for name, clf in model_definitions.items():
         pipeline = Pipeline(steps=[
             ("preprocessor", preprocessor),
             ("classifier", clf),
         ])
         pipeline.fit(X_train, y_train)
- 
+
         preds = pipeline.predict(X_val)
         probs = pipeline.predict_proba(X_val)
- 
+
         metrics = {
             "ML Model Name": name,
             "Accuracy": round(accuracy_score(y_val, preds), 4),
@@ -167,14 +169,14 @@ def main() -> None:
         }
         results.append(metrics)
         fitted_pipelines[name] = pipeline
- 
+
         print(f"\n{name}")
         for metric, value in metrics.items():
             if metric != "ML Model Name":
                 print(f"{metric:<12}: {value}")
- 
+
         safe_name = safe_filename(name)
- 
+
         # ---- Per-model classification report ----
         report = classification_report(
             y_val, preds, target_names=class_names, output_dict=True, zero_division=0
@@ -182,13 +184,13 @@ def main() -> None:
         pd.DataFrame(report).transpose().to_csv(
             MODEL_DIR / f"{safe_name}_classification_report.csv"
         )
- 
+
         # ---- Per-model confusion matrix ----
         cm = confusion_matrix(y_val, preds)
         pd.DataFrame(cm, index=class_names, columns=class_names).to_csv(
             MODEL_DIR / f"{safe_name}_confusion_matrix.csv"
         )
- 
+
     # ---- Save comparison table, sorted by Accuracy (best first) ----
     results_df = (
         pd.DataFrame(results)
@@ -197,18 +199,18 @@ def main() -> None:
     )
     results_df.to_csv(MODEL_DIR / "metrics_comparison.csv", index=False)
     print("\nComparison table (sorted by Accuracy):\n", results_df)
- 
+
     # ---- Save the best-performing model's name, so app.py can default to it ----
     best_model_name = results_df.iloc[0]["ML Model Name"]
     with open(MODEL_DIR / "best_model.json", "w") as f:
         json.dump({"best_model": best_model_name}, f)
     print(f"\nBest model by Accuracy: {best_model_name}")
- 
+
     # ---- Save fitted pipelines (preprocessing + model bundled together) ----
     for name, pipeline in fitted_pipelines.items():
         safe_name = safe_filename(name)
         joblib.dump(pipeline, MODEL_DIR / f"{safe_name}.pkl")
- 
+
     joblib.dump(label_encoder, MODEL_DIR / "label_encoder.pkl")
     with open(MODEL_DIR / "feature_names.json", "w") as f:
         json.dump(list(X.columns), f)
@@ -218,7 +220,7 @@ def main() -> None:
         json.dump(numerical_columns, f)
     with open(MODEL_DIR / "class_names.json", "w") as f:
         json.dump(class_names, f)
- 
+
     # ---- Save post-one-hot-encoding feature names (for interpretation / feature importance) ----
     # All 5 pipelines share the same ColumnTransformer definition, so any one of them
     # gives the representative expanded feature list.
@@ -227,10 +229,26 @@ def main() -> None:
     with open(MODEL_DIR / "encoded_feature_names.json", "w") as f:
         json.dump(encoded_feature_names, f)
     print(f"\nEncoded feature count after preprocessing: {len(encoded_feature_names)}")
- 
+
+    # ---- Save per-feature default values (median for numeric, mode for categorical) ----
+    # Used by the Streamlit app's single-student prediction form, so the user only
+    # has to fill in a handful of the most relevant fields and everything else
+    # defaults to a "typical student" value instead of zeros/blanks.
+    default_values = {}
+    for col in numerical_columns:
+        default_values[col] = float(X[col].median())
+    for col in categorical_columns:
+        default_values[col] = X[col].mode(dropna=True).iloc[0]
+
+        if hasattr(default_values[col], "item"):
+            default_values[col] = default_values[col].item()
+    with open(MODEL_DIR / "default_values.json", "w") as f:
+        json.dump(default_values, f)
+    print("Default (median/mode) feature values saved for the single-student form.")
+
     print("\nAll pipelines, per-model reports/confusion matrices, and metadata saved to /model")
     print("Class names:", class_names)
- 
- 
+
+
 if __name__ == "__main__":
     main()
