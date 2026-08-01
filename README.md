@@ -93,7 +93,7 @@ Model configuration notes:
 pip install -r requirements.txt
 python data/prepare_data.py       # generates the CSVs (already included in repo)
 python model/train_models.py      # trains models (already included in repo)
-streamlit run app.py
+streamlit run streamlit_app.py
 ```
 
 ## Deployment on Streamlit Community Cloud
