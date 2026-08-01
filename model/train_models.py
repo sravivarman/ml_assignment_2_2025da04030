@@ -5,8 +5,6 @@ Trains 5 classification models on the Student Dropout & Academic Success dataset
 - Categorical (nominal-code) features -> OneHotEncoder
 combined via ColumnTransformer and wrapped in a Pipeline per model, so each
 saved .pkl file is a complete, ready-to-predict-on-raw-data pipeline.
-Logistic Regression and Decision Tree — with basic evaluation metrics printed 
-to console.
 
 Models:
 1. Logistic Regression
@@ -14,10 +12,25 @@ Models:
 3. K-Nearest Neighbor Classifier
 4. Gaussian Naive Bayes
 5. Random Forest
+
+Saves:
+- model/<safe_name>.pkl -> fitted pipeline (preprocessing + classifier)
+- model/<safe_name>_classification_report.csv -> full per-class precision/recall/f1 report
+- model/<safe_name>_confusion_matrix.csv -> confusion matrix (rows/cols = class names)
+- model/metrics_comparison.csv -> comparison table across all 5 models, sorted by Accuracy
+- model/best_model.json -> name of the top-accuracy model, for app.py to auto-select
+- model/label_encoder.pkl -> fitted LabelEncoder for the target
+- model/feature_names.json -> original (pre-encoding) feature columns
+- model/categorical_columns.json -> the categorical columns fed to OneHotEncoder
+- model/numerical_columns.json -> the numerical columns fed to StandardScaler
+- model/class_names.json -> ordered class name list
+- model/encoded_feature_names.json -> feature names AFTER one-hot encoding (236 total)
 """
 
 import pandas as pd
 from pathlib import Path
+import json
+import joblib
  
 from sklearn.model_selection import train_test_split
 from sklearn.preprocessing import LabelEncoder, OneHotEncoder, StandardScaler
@@ -25,12 +38,16 @@ from sklearn.compose import ColumnTransformer
 from sklearn.pipeline import Pipeline
 from sklearn.linear_model import LogisticRegression
 from sklearn.tree import DecisionTreeClassifier
+from sklearn.neighbors import KNeighborsClassifier
+from sklearn.naive_bayes import GaussianNB
+from sklearn.ensemble import RandomForestClassifier
 from sklearn.metrics import (
     accuracy_score, roc_auc_score, precision_score,
     recall_score, f1_score, matthews_corrcoef,
+    classification_report, confusion_matrix
 )
  
-# ---- Path constants (portable: relative to this file, not the OS) -------
+# ---- Path constants -------
 SCRIPT_DIR = Path(__file__).resolve().parent           # .../project/model
 PROJECT_ROOT = SCRIPT_DIR.parent                        # .../project
 MODEL_DIR = SCRIPT_DIR
@@ -40,6 +57,16 @@ TRAIN_ONLY_PATH = DATA_DIR / "train_only.csv"
 RANDOM_STATE = 42
  
  
+def safe_filename(name: str) -> str:
+    """Convert a model display name into a filesystem-safe stem"""
+    return (
+        name.lower()
+        .replace(" ", "_")
+        .replace("(", "")
+        .replace(")", "")
+        .replace("-", "_")
+    )
+  
 def main() -> None:
     # ---- Load training data (excludes the held-out test_data.csv used by the app) ----
     df = pd.read_csv(TRAIN_ONLY_PATH)
@@ -66,6 +93,11 @@ def main() -> None:
         "Scholarship holder",
         "International",
     ]
+ 
+    missing = set(categorical_columns) - set(X.columns)
+    if missing:
+        raise ValueError(f"Missing expected categorical columns: {missing}")
+ 
     numerical_columns = [col for col in X.columns if col not in categorical_columns]
  
     print("Categorical Features :", len(categorical_columns))
@@ -102,6 +134,13 @@ def main() -> None:
             random_state=RANDOM_STATE,
         ),
         "Decision Tree": DecisionTreeClassifier(random_state=RANDOM_STATE),
+        "kNN": KNeighborsClassifier(n_neighbors=5, weights="distance"),
+        "Naive Bayes": GaussianNB(),
+        "Random Forest": RandomForestClassifier(
+            n_estimators=300,
+            random_state=RANDOM_STATE,
+            n_jobs=-1,
+        ),
     }
  
     results = []
@@ -121,21 +160,77 @@ def main() -> None:
             "ML Model Name": name,
             "Accuracy": round(accuracy_score(y_val, preds), 4),
             "AUC": round(roc_auc_score(y_val, probs, multi_class="ovr", average="macro"), 4),
-            "Precision": round(precision_score(y_val, preds, average="weighted"), 4),
-            "Recall": round(recall_score(y_val, preds, average="weighted"), 4),
-            "F1": round(f1_score(y_val, preds, average="weighted"), 4),
+            "Precision": round(precision_score(y_val, preds, average="weighted", zero_division=0), 4),
+            "Recall": round(recall_score(y_val, preds, average="weighted", zero_division=0), 4),
+            "F1": round(f1_score(y_val, preds, average="weighted", zero_division=0), 4),
             "MCC": round(matthews_corrcoef(y_val, preds), 4),
         }
         results.append(metrics)
         fitted_pipelines[name] = pipeline
-        print(name, metrics)
  
-    results_df = pd.DataFrame(results)
-    print("\nComparison table so far:\n", results_df)
+        print(f"\n{name}")
+        for metric, value in metrics.items():
+            if metric != "ML Model Name":
+                print(f"{metric:<12}: {value}")
  
-    # TODO: add kNN, Naive Bayes, Random Forest; 
-    # save per-model classification reports and confusion matrices;
-    # sort the comparison table and save the fitted pipelines + best model.
+        safe_name = safe_filename(name)
+ 
+        # ---- Per-model classification report ----
+        report = classification_report(
+            y_val, preds, target_names=class_names, output_dict=True, zero_division=0
+        )
+        pd.DataFrame(report).transpose().to_csv(
+            MODEL_DIR / f"{safe_name}_classification_report.csv"
+        )
+ 
+        # ---- Per-model confusion matrix ----
+        cm = confusion_matrix(y_val, preds)
+        pd.DataFrame(cm, index=class_names, columns=class_names).to_csv(
+            MODEL_DIR / f"{safe_name}_confusion_matrix.csv"
+        )
+ 
+    # ---- Save comparison table, sorted by Accuracy (best first) ----
+    results_df = (
+        pd.DataFrame(results)
+        .sort_values(by="Accuracy", ascending=False)
+        .reset_index(drop=True)
+    )
+    results_df.to_csv(MODEL_DIR / "metrics_comparison.csv", index=False)
+    print("\nComparison table (sorted by Accuracy):\n", results_df)
+ 
+    # ---- Save the best-performing model's name, so app.py can default to it ----
+    best_model_name = results_df.iloc[0]["ML Model Name"]
+    with open(MODEL_DIR / "best_model.json", "w") as f:
+        json.dump({"best_model": best_model_name}, f)
+    print(f"\nBest model by Accuracy: {best_model_name}")
+ 
+    # ---- Save fitted pipelines (preprocessing + model bundled together) ----
+    for name, pipeline in fitted_pipelines.items():
+        safe_name = safe_filename(name)
+        joblib.dump(pipeline, MODEL_DIR / f"{safe_name}.pkl")
+ 
+    joblib.dump(label_encoder, MODEL_DIR / "label_encoder.pkl")
+    with open(MODEL_DIR / "feature_names.json", "w") as f:
+        json.dump(list(X.columns), f)
+    with open(MODEL_DIR / "categorical_columns.json", "w") as f:
+        json.dump(categorical_columns, f)
+    with open(MODEL_DIR / "numerical_columns.json", "w") as f:
+        json.dump(numerical_columns, f)
+    with open(MODEL_DIR / "class_names.json", "w") as f:
+        json.dump(class_names, f)
+ 
+    # ---- Save post-one-hot-encoding feature names (for interpretation / feature importance) ----
+    # All 5 pipelines share the same ColumnTransformer definition, so any one of them
+    # gives the representative expanded feature list.
+    sample_pipeline = next(iter(fitted_pipelines.values()))
+    encoded_feature_names = sample_pipeline.named_steps["preprocessor"].get_feature_names_out().tolist()
+    with open(MODEL_DIR / "encoded_feature_names.json", "w") as f:
+        json.dump(encoded_feature_names, f)
+    print(f"\nEncoded feature count after preprocessing: {len(encoded_feature_names)}")
+ 
+    print("\nAll pipelines, per-model reports/confusion matrices, and metadata saved to /model")
+    print("Class names:", class_names)
+ 
  
 if __name__ == "__main__":
     main()
