@@ -1,0 +1,9 @@
+[theme]
+# A deep academic-blue / warm-amber palette instead of Streamlit's default
+# red theme — a small touch, but it's the first thing that visually signals
+# this isn't an unmodified template.
+primaryColor = "#B8860B"
+backgroundColor = "#FFFFFF"
+secondaryBackgroundColor = "#EEF2F7"
+textColor = "#1B2A4A"
+font = "sans serif"
