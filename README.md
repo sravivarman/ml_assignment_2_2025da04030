@@ -97,4 +97,29 @@ streamlit run streamlit_app.py
 ```
 
 ## Deployment on Streamlit Community Cloud
+The app is organized into two tabs:
+ 
+**Bulk Evaluation (CSV Upload)**
+- **CSV upload** — upload `test_data.csv` (or any CSV with the same 36
+  feature columns + `Target` label)
+- **Model selection dropdown** — choose among all 5 trained models
+  (sidebar, shared across both tabs; defaults to the best-performing model)
+- **Evaluation metrics display** — Accuracy, AUC, Precision, Recall, F1, MCC
+  shown live for the selected model on the uploaded data
+- **Confusion matrix & classification report** — 3×3 confusion matrix heatmap
+  (Dropout / Enrolled / Graduate) and a full per-class classification report
+- **Domain-specific interpretation** — separately flags the count and rate of
+  students who **actually dropped out but were predicted "Graduate"** — the
+  costliest error type for an early-intervention use case, since these are
+  exactly the students who wouldn't get flagged for support
+- **All-model comparison table + chart** — see how all 5 models perform
+  side-by-side on the same uploaded data
+**Single Student Prediction**
+- A manual entry form for one student's key details (course, attendance,
+  age, scholarship/tuition/debtor status, semester grades and approved
+  units); all other features default to the median/mode "typical student"
+  value from the training data (`model/default_values.json`)
+- Live prediction with a probability bar chart across all 3 classes, plus a
+  plain-language flag when the predicted outcome is "Dropout"
 
+**Live Streamlit App:** `https://mlassignment22025da04030-pwaah8udxgjlyztpysgvbz.streamlit.app/` 
